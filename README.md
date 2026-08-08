@@ -1,5 +1,7 @@
 # go-temp
 
+别为了看个文件大小、生成个 uuid 去下 App，一条命令的事。
+
 临时文件和目录管理，基于标准库的 `os.CreateTemp` / `os.MkdirTemp`。
 
 ```bash
