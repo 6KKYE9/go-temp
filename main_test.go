@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -31,20 +34,34 @@ func TestSafeAbs(t *testing.T) {
 func TestCmdList(t *testing.T) {
 	dir := t.TempDir()
 	// 创建两个 gotemp-* 与一个无关项
-	os.Mkdir(filepath.Join(dir, "gotemp-one"), 0o755)
-	os.WriteFile(filepath.Join(dir, "gotemp-two"), []byte("x"), 0o644)
-	os.WriteFile(filepath.Join(dir, "other"), []byte("x"), 0o644)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
+	if err := os.Mkdir(filepath.Join(dir, "gotemp-one"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(dir, "gotemp-two"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "other"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 真正调用 cmdList，并捕获它的 stdout 来校验
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	cmdList(dir)
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
 	count := 0
-	for _, e := range entries {
-		if len(e.Name()) >= 8 && e.Name()[:8] == "gotemp-" {
+	for _, l := range lines {
+		if strings.Contains(l, "gotemp-") {
 			count++
 		}
 	}
 	if count != 2 {
-		t.Fatalf("应找到 2 个 gotemp-* 项, got %d", count)
+		t.Fatalf("cmdList 应找到 2 个 gotemp-* 项, got %d\n输出:\n%s", count, buf.String())
 	}
 }
